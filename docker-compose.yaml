@@ -95,7 +95,7 @@ services:
 
     networks:
       - backend
-    command: redis-server --bind 0.0.0.0 --requirepass "" --protected-mode no
+    command: redis-server --bind 0.0.0.0 --protected-mode no
 
 networks:
   backend:
