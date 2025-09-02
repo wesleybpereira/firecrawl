@@ -1,0 +1,308 @@
+{
+  "meta": {
+    "instanceId": "lead-enrichment-example"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit"
+        },
+        "sheetName": "Sheet1",
+        "dataStartRow": 2,
+        "keyRow": 1
+      },
+      "id": "google-sheets-trigger",
+      "name": "Google Sheets - Monitorar Leads",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_corporate_email }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "leftValue": "={{ $json.domain }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "filter-generic-emails",
+      "name": "Filtrar Emails Genéricos",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5000/enrich-lead",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "empresa",
+              "value": "={{ $json.empresa }}"
+            },
+            {
+              "name": "telefone", 
+              "value": "={{ $json.telefone }}"
+            },
+            {
+              "name": "email",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "name": "row_number",
+              "value": "={{ $json.row_number }}"
+            },
+            {
+              "name": "is_corporate_email",
+              "value": "={{ $json.is_corporate_email }}"
+            },
+            {
+              "name": "domain",
+              "value": "={{ $json.domain }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "enrich-lead-request",
+      "name": "Enriquecer Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        }
+      },
+      "id": "check-enrichment-success",
+      "name": "Verificar Sucesso",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processar dados enriquecidos\nconst originalData = $input.item.json.data.original_data;\nconst enrichedData = $input.item.json.data.enriched_data;\n\n// Montar objeto com dados combinados\nconst result = {\n  // Dados originais\n  empresa: originalData.empresa,\n  telefone_original: originalData.telefone,\n  email_original: originalData.email,\n  row_number: originalData.row_number,\n  \n  // Dados enriquecidos\n  website: enrichedData.website || '',\n  telefones_adicionais: (enrichedData.additional_phones || []).join(', '),\n  emails_adicionais: (enrichedData.additional_emails || []).join(', '),\n  cnpj: enrichedData.cnpj || '',\n  endereco: enrichedData.endereco || '',\n  instagram: enrichedData.redes_sociais?.instagram || '',\n  facebook: enrichedData.redes_sociais?.facebook || '',\n  linkedin: enrichedData.redes_sociais?.linkedin || '',\n  confidence_score: enrichedData.confidence_score || 0,\n  data_enriquecimento: new Date().toISOString().split('T')[0]\n};\n\nreturn result;"
+      },
+      "id": "process-enriched-data",
+      "name": "Processar Dados Enriquecidos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit"
+        },
+        "sheetName": "Leads_Enriquecidos",
+        "columnToMatchOn": "row_number",
+        "valueToMatchOn": "={{ $json.row_number }}",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "empresa",
+              "value": "={{ $json.empresa }}"
+            },
+            {
+              "column": "telefone_original",
+              "value": "={{ $json.telefone_original }}"
+            },
+            {
+              "column": "email_original", 
+              "value": "={{ $json.email_original }}"
+            },
+            {
+              "column": "website",
+              "value": "={{ $json.website }}"
+            },
+            {
+              "column": "telefones_adicionais",
+              "value": "={{ $json.telefones_adicionais }}"
+            },
+            {
+              "column": "emails_adicionais",
+              "value": "={{ $json.emails_adicionais }}"
+            },
+            {
+              "column": "cnpj",
+              "value": "={{ $json.cnpj }}"
+            },
+            {
+              "column": "endereco",
+              "value": "={{ $json.endereco }}"
+            },
+            {
+              "column": "instagram",
+              "value": "={{ $json.instagram }}"
+            },
+            {
+              "column": "facebook",
+              "value": "={{ $json.facebook }}"
+            },
+            {
+              "column": "linkedin",
+              "value": "={{ $json.linkedin }}"
+            },
+            {
+              "column": "confidence_score",
+              "value": "={{ $json.confidence_score }}"
+            },
+            {
+              "column": "data_enriquecimento",
+              "value": "={{ $json.data_enriquecimento }}"
+            }
+          ]
+        }
+      },
+      "id": "update-spreadsheet",
+      "name": "Atualizar Planilha",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "message": "=Lead enriquecido: {{ $json.empresa }}\nWebsite: {{ $json.website }}\nScore: {{ $json.confidence_score }}/100",
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "additionalFields": {}
+      },
+      "id": "telegram-notification",
+      "name": "Notificar Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    }
+  ],
+  "connections": {
+    "Google Sheets - Monitorar Leads": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Emails Genéricos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Emails Genéricos": {
+      "main": [
+        [
+          {
+            "node": "Enriquecer Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enriquecer Lead": {
+      "main": [
+        [
+          {
+            "node": "Verificar Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Sucesso": {
+      "main": [
+        [
+          {
+            "node": "Processar Dados Enriquecidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Dados Enriquecidos": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Planilha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Planilha": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}
