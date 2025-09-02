@@ -11,7 +11,7 @@ import requests
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from dotenv import load_dotenv
-import google.genai as genai
+import google.generativeai as genai
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -65,8 +65,8 @@ class LeadEnrichmentService:
             raise ValueError("GEMINI_API_KEY não encontrada nas variáveis de ambiente")
         
         # Inicializar cliente Gemini
-        self.gemini_client = genai.Client(api_key=self.gemini_api_key)
-        self.model_name = "gemini-2.5-pro-exp-03-25"
+        genai.configure(api_key=self.gemini_api_key)
+        self.model_name = "gemini-1.5-pro"  # Modelo mais estável
         
         # Configurar base URL do Firecrawl
         if self.firecrawl_internal_url:
@@ -195,10 +195,8 @@ Responda APENAS com o JSON, sem texto adicional.
 """
 
         try:
-            response = self.gemini_client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
+            model = genai.GenerativeModel(self.model_name)
+            response = model.generate_content(prompt)
             
             # Limpar a resposta
             response_text = response.text.strip()
